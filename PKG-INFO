@@ -1,0 +1,20 @@
+Metadata-Version: 1.2
+Name: pyandor
+Version: 2.86.30000.0-pre1
+Platform: GNU Linix
+Supported-Platform: x86
+Supported-Platform: x86_64
+Summary: Wrapper for Andor SDK functions
+Description: This module wraps the Andor Technology .so in order to be called
+             from within Python with a "batteries included" philosophy of
+             layering a simpler API, and handling status returns as Python
+             exceptions
+Keywords: andor sdk wrapper ctypes c c++ linux ccd emccd iccd scmos
+Download-URL: FIXME
+Author-email: "Pariksheet Nanda" <p.nanda@andor.com>
+License: LGPL-3
+Classifier: Environment :: Console (Text Based)
+Requires: FIXME
+Requires-Python: >=3.1
+Copyright: Pariksheet Nanda
+Copyright: Public Domain

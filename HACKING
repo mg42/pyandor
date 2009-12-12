@@ -1,0 +1,20 @@
+Bug and feature tracking system
+===============================
+
+Please file bugs and feature requests to the issue github tacking system
+(http://github.com/omsai/py-andor/issues)
+
+
+Patches
+=======
+
+Please submit patches to the github issue tracking system or to the people
+listed in the CREDITS file.  Your patch should be in unified diff format 
+(the -u option to GNU diff).  Please send a patch against a recent version 
+of this package.
+
+
+Coding Style
+============
+
+- Google style guide http://code.google.com/p/google-styleguide/
