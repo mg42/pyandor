@@ -8,8 +8,7 @@ Build `pyandor` by running:
 To use the example, create a symlink named pyandor.so to the build object
 similar to:
 
-    $ ln -sv build/lib.linux-x86_64-3.1/pyandor.so pyandor.so
-    `pyandor.so' -> `build/lib.linux-x86_64-3.1/pyandor.so'
+    $ ln -s build/lib.linux-x86_64-3.1/pyandor.so pyandor.so
 
 You have to install the Andor SDK package separately, and have your compiler
 and linker find the include files and libraries.  You also need to have the
