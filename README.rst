@@ -10,7 +10,7 @@ similar to::
 
     $ ln -s build/lib.linux-x86_64-3.1/pyandor.so pyandor.so
 
-Example outout of Luca-S::
+Example output with Luca-S::
 
     $ ./test-image-example.py
     Cameras found: (100,)
