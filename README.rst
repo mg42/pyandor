@@ -1,16 +1,16 @@
 `pyandor` is a Python wrapper around the accompanying C Python extension
 `_pyandor`, which is a wrapper around the SDK from Andor Technology.
 
-Build `pyandor` by running:
+Build `pyandor` by running::
 
     $ python setup.py build
 
 To use the example, create a symlink named pyandor.so to the build object
-similar to:
+similar to::
 
     $ ln -s build/lib.linux-x86_64-3.1/pyandor.so pyandor.so
 
-Example outout of Luca-S:
+Example outout of Luca-S::
 
     $ ./test-image-example.py
     Cameras found: (100,)
