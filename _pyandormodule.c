@@ -30,13 +30,11 @@ PyGetCameraHandles(PyObject *self) {
   PyObject *t;
   at_32 totalCameras, cameraHandle;
   int i;
-  err= GetAvailableCameras(&totalCameras);
-	                                         if (err != DRV_SUCCESS) return NULL;
+  err= GetAvailableCameras(&totalCameras); N(err)
   if (totalCameras > 0) {
     t = PyTuple_New(totalCameras);
     for (i=0; i < totalCameras; ++i) {
-      err= GetCameraHandle(i, &cameraHandle);
-                                           if (err != DRV_SUCCESS) return NULL;
+      err= GetCameraHandle(i, &cameraHandle); N(err)
       PyTuple_SetItem(t, i, PyLong_FromLong((long)cameraHandle));
     }
     return t;
@@ -65,8 +63,7 @@ PyInitialize(PyObject *self,
   at_32 cameraHandle = 0;
   PyArg_ParseTuple(args, "|i",  &cameraHandle);
   if (cameraHandle) {
-    err= SetCurrentCamera(cameraHandle);
-                                           if (err != DRV_SUCCESS) return NULL;
+    err= SetCurrentCamera(cameraHandle); N(err)
   }
   err= Initialize(ETC_DIR);
   if (err != DRV_SUCCESS) {
@@ -86,8 +83,7 @@ static PyObject*
 PyGetHeadModel(PyObject *self) {
   unsigned int err;
   char name[MAX_PATH];
-  err= GetHeadModel(name);
-                                           if (err != DRV_SUCCESS) return NULL;
+  err= GetHeadModel(name); N(err)
   return Py_BuildValue("z#", &name, MAX_PATH);
   /* TODO: with a dictionary make this more human readable, e.g.:
    *   Luc247_MONO = Luca-S */
@@ -97,8 +93,7 @@ static PyObject*
 PyGetCameraSerialNumber(PyObject *self) {
   unsigned int err;
   int number;
-  err= GetCameraSerialNumber(&number);
-                                           if (err != DRV_SUCCESS) return NULL;
+  err= GetCameraSerialNumber(&number); N(err)
   return Py_BuildValue("i", number);
 }
 // unsigned int GetCapabilities(AndorCapabilities * caps);
@@ -108,8 +103,7 @@ PyGetCapabilities(PyObject *self) {
   PyObject *d;
   AndorCapabilities caps;
   caps.ulSize = sizeof(caps);
-  err= GetCapabilities(&caps);
-                                           if (err != DRV_SUCCESS) return NULL;
+  err= GetCapabilities(&caps); N(err)
   d = PyDict_New();
   PyDict_SetItem(d, PyUnicode_FromString("AcqModes"),
                  PyLong_FromLong((long)caps.ulAcqModes));
@@ -140,8 +134,7 @@ static PyObject*
 PyIsInternalMechanicalShutter(PyObject *self) {
 	unsigned int err;
 	int InternalShutter;
-	err= IsInternalMechanicalShutter(&InternalShutter);
-                                           if (err != DRV_SUCCESS) return NULL;
+	err= IsInternalMechanicalShutter(&InternalShutter); N(err)
   return Py_BuildValue("i", InternalShutter);
 }
 //unsigned int GetNumberADChannels(int * channels);
@@ -163,12 +156,9 @@ PyGetReadoutCapabilities(PyObject *self) {
   PyObject *c, *ADChannelBitDepths, *AmplifierTypes, *HSSpeeds, *PreAmpGains;
   PyObject *AvailableMatrix;
   int i,j,k,m;
-  err= GetNumberADChannels(&NumChannels);
-                                           if (err != DRV_SUCCESS) return NULL;
-  err= GetNumberAmp(&NumAmp);
-                                           if (err != DRV_SUCCESS) return NULL;
-  err= GetNumberPreAmpGains(&NumPreAmpGains);
-                                           if (err != DRV_SUCCESS) return NULL;
+  err= GetNumberADChannels(&NumChannels); N(err)
+  err= GetNumberAmp(&NumAmp); N(err)
+  err= GetNumberPreAmpGains(&NumPreAmpGains); N(err)
   ADChannelBitDepths = PyList_New(NumChannels);
   AmplifierTypes = PyList_New(NumAmp);
   HSSpeeds = PyList_New(0);
@@ -176,26 +166,21 @@ PyGetReadoutCapabilities(PyObject *self) {
   AvailableMatrix = PyList_New(0);
   
   for (i=0; i < NumChannels; ++i) {
-    err= GetBitDepth(i, &BitDepth);
-                                           if (err != DRV_SUCCESS) return NULL;
+    err= GetBitDepth(i, &BitDepth); N(err)
     PyList_SetItem(ADChannelBitDepths, i,
                    PyLong_FromLong((long)BitDepth));
     for (j=0; j < NumAmp; ++j) {
-		  err= GetNumberHSSpeeds(i,j, &NumHSpeeds);
-                                           if (err != DRV_SUCCESS) return NULL;
+		  err= GetNumberHSSpeeds(i,j, &NumHSpeeds); N(err)
       err= GetAmpDesc(j, AmplifierName, sizeof(AmplifierName));
       PyList_SetItem(AmplifierTypes, j, PyUnicode_FromString(AmplifierName));
       for (k=0; k < NumHSpeeds; ++k) {
-			  err= GetHSSpeed(i,j,k, &HSSpeed);
-                                           if (err != DRV_SUCCESS) return NULL;
+			  err= GetHSSpeed(i,j,k, &HSSpeed); N(err)
         PyList_Append(HSSpeeds,
                       PyLong_FromLong((long)HSSpeed));
 			  for (m=0; m < NumPreAmpGains; ++m) {
-				  err= GetPreAmpGain(m, &PreAmpGain);
-                                           if (err != DRV_SUCCESS) return NULL;
+				  err= GetPreAmpGain(m, &PreAmpGain); N(err)
           PyList_SetItem(PreAmpGains, m, PyLong_FromLong((long)PreAmpGain));
-          err= IsPreAmpGainAvailable(i,j,k,m, &IsAvailable);
-                                           if (err != DRV_SUCCESS) return NULL;
+          err= IsPreAmpGainAvailable(i,j,k,m, &IsAvailable); N(err)
           if (IsAvailable)
             PyList_Append(AvailableMatrix, Py_BuildValue("[i,i,i,i]",i,j,k,m));
 				}
@@ -223,16 +208,13 @@ PyGetVSCapabilities(PyObject *self) {
   float tempSpeed;
   //float speed[MAX_VS]={0}, recommended={0};
   int i;
-  err= GetNumberVSSpeeds(&NumSpeeds);
-                                           if (err != DRV_SUCCESS) return NULL;
+  err= GetNumberVSSpeeds(&NumSpeeds); N(err)
   speed = PyList_New(NumSpeeds);
   for (i=0; i < NumSpeeds; ++i) {
-    err= GetVSSpeed(i, &tempSpeed);
-                                           if (err != DRV_SUCCESS) return NULL;
+    err= GetVSSpeed(i, &tempSpeed); N(err)
     PyList_SetItem(speed, i, PyFloat_FromDouble((double)tempSpeed));
   }
-  err= GetFastestRecommendedVSSpeed(&i, &tempSpeed);
-                                           if (err != DRV_SUCCESS) return NULL;
+  err= GetFastestRecommendedVSSpeed(&i, &tempSpeed); N(err)
   err= GetNumberVSAmplitudes(&NumAmplitudes);
   if (err == DRV_NOT_AVAILABLE) {
     Py_INCREF(Py_None);
@@ -258,11 +240,9 @@ PyShutDown(PyObject *self,
   at_32 cameraHandle = 0;
   PyArg_ParseTuple(args, "|i",  &cameraHandle);
   if (cameraHandle) {
-    err= SetCurrentCamera(cameraHandle);
-                                           if (err != DRV_SUCCESS) return NULL;
+    err= SetCurrentCamera(cameraHandle); N(err)
   }
-  err= ShutDown();
-                                           if (err != DRV_SUCCESS) return NULL;
+  err= ShutDown(); N(err)
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -276,7 +256,8 @@ PyGetVersionInfo(PyObject *self) {
   at_u32 size_t = sizeof(VersionInfo);
   err= GetVersionInfo(ver, VersionInfo, size_t);
   if (err != DRV_SUCCESS) {
-    fprintf(stderr, "GetVersionInfo exception %u\n", err);
+    fprintf(stderr, "Error %u instead of DRV_SUCCESS at %s/%s:%d\n", \
+                  err, __FILE__, __FUNCTION__, __LINE__); \
     Py_INCREF(Py_None);
     return Py_None;
   }

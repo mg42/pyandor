@@ -19,10 +19,20 @@
  * License along with pyandor.  If not, see http://www.gnu.org/licenses/
  */
 
+#ifndef __PYANDOR_H__
+#define __PYANDOR_H__
+
 #include <Python.h>
 #include "atmcdLXd.h"
 
-/* --- Variables ----------------------------------------------------------- */
+/* --- Macros -------------------------------------------------------------- */
+#define N(err) if (err != DRV_SUCCESS) { \
+  fprintf(stderr, "Error %u instead of DRV_SUCCESS at %s/%s:%d\n", \
+                  err, __FILE__, __FUNCTION__, __LINE__); \
+  return NULL; \
+}
+
+/* --- Constants ----------------------------------------------------------- */
 #define ETC_DIR "/usr/local/etc/andor/"
 #define MAX_PATH 12 /* TODO: `12' was found be trial and error.
                      *   What should MAX_PATH actually be?
@@ -34,3 +44,5 @@
 static PyObject* AndorError;
 /* TODO: set exceptions for the functions and map the return codes
  *   and meanings to the exception message. */
+
+#endif /* def __PYANDOR_H__ */

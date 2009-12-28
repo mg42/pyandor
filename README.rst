@@ -14,7 +14,7 @@ Example output with Luca-S::
 
     $ ./test-image-example.py
     Cameras found: (100,)
-    GetVersionInfo exception 20066
+    Error 20066 instead of DRV_SUCCESS at _pyandormodule.c/PyGetVersionInfo:260
     Versions: None
     Camera handle# 100 initializing ...
     Identified head: Luc247_MONO
