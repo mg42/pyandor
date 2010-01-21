@@ -30,11 +30,11 @@ PyGetCameraHandles(PyObject *self) {
   PyObject *t;
   at_32 totalCameras, cameraHandle;
   int i;
-  err= GetAvailableCameras(&totalCameras); N(err)
+  err= GetAvailableCameras(&totalCameras); HANDLE(err)
   if (totalCameras > 0) {
     t = PyTuple_New(totalCameras);
     for (i=0; i < totalCameras; ++i) {
-      err= GetCameraHandle(i, &cameraHandle); N(err)
+      err= GetCameraHandle(i, &cameraHandle); HANDLE(err)                        
       PyTuple_SetItem(t, i, PyLong_FromLong((long)cameraHandle));
     }
     return t;
@@ -49,8 +49,7 @@ PySetCurrentCamera(PyObject *self,
   unsigned int err;
   at_32 cameraHandle;
   PyArg_ParseTuple(args, "i",  &cameraHandle);
-  err= SetCurrentCamera(cameraHandle);
-	                                         if (err != DRV_SUCCESS) return NULL;
+  err= SetCurrentCamera(cameraHandle); HANDLE(err)
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -63,11 +62,12 @@ PyInitialize(PyObject *self,
   at_32 cameraHandle = 0;
   PyArg_ParseTuple(args, "|i",  &cameraHandle);
   if (cameraHandle) {
-    err= SetCurrentCamera(cameraHandle); N(err)
+    err= SetCurrentCamera(cameraHandle); HANDLE(err)
   }
   err= Initialize(ETC_DIR);
   if (err != DRV_SUCCESS) {
-    fprintf(stderr, "Initialization exception %u\n", err);
+    fprintf(stderr, "Error %u instead of DRV_SUCCESS at %s/%s:%d\n",
+                  err, __FILE__, __FUNCTION__, __LINE__-3);
     return NULL;
   }
   /* The win32 example program mentioned a 2 second wait is required
@@ -83,7 +83,7 @@ static PyObject*
 PyGetHeadModel(PyObject *self) {
   unsigned int err;
   char name[MAX_PATH];
-  err= GetHeadModel(name); N(err)
+  err= GetHeadModel(name); HANDLE(err)
   return Py_BuildValue("z#", &name, MAX_PATH);
   /* TODO: with a dictionary make this more human readable, e.g.:
    *   Luc247_MONO = Luca-S */
@@ -93,7 +93,7 @@ static PyObject*
 PyGetCameraSerialNumber(PyObject *self) {
   unsigned int err;
   int number;
-  err= GetCameraSerialNumber(&number); N(err)
+  err= GetCameraSerialNumber(&number); HANDLE(err)
   return Py_BuildValue("i", number);
 }
 // unsigned int GetCapabilities(AndorCapabilities * caps);
@@ -103,7 +103,7 @@ PyGetCapabilities(PyObject *self) {
   PyObject *d;
   AndorCapabilities caps;
   caps.ulSize = sizeof(caps);
-  err= GetCapabilities(&caps); N(err)
+  err= GetCapabilities(&caps); HANDLE(err)
   d = PyDict_New();
   PyDict_SetItem(d, PyUnicode_FromString("AcqModes"),
                  PyLong_FromLong((long)caps.ulAcqModes));
@@ -134,7 +134,7 @@ static PyObject*
 PyIsInternalMechanicalShutter(PyObject *self) {
 	unsigned int err;
 	int InternalShutter;
-	err= IsInternalMechanicalShutter(&InternalShutter); N(err)
+	err= IsInternalMechanicalShutter(&InternalShutter); HANDLE(err)
   return Py_BuildValue("i", InternalShutter);
 }
 //unsigned int GetNumberADChannels(int * channels);
@@ -156,9 +156,9 @@ PyGetReadoutCapabilities(PyObject *self) {
   PyObject *c, *ADChannelBitDepths, *AmplifierTypes, *HSSpeeds, *PreAmpGains;
   PyObject *AvailableMatrix;
   int i,j,k,m;
-  err= GetNumberADChannels(&NumChannels); N(err)
-  err= GetNumberAmp(&NumAmp); N(err)
-  err= GetNumberPreAmpGains(&NumPreAmpGains); N(err)
+  err= GetNumberADChannels(&NumChannels); HANDLE(err)
+  err= GetNumberAmp(&NumAmp); HANDLE(err)
+  err= GetNumberPreAmpGains(&NumPreAmpGains); HANDLE(err)
   ADChannelBitDepths = PyList_New(NumChannels);
   AmplifierTypes = PyList_New(NumAmp);
   HSSpeeds = PyList_New(0);
@@ -166,21 +166,21 @@ PyGetReadoutCapabilities(PyObject *self) {
   AvailableMatrix = PyList_New(0);
   
   for (i=0; i < NumChannels; ++i) {
-    err= GetBitDepth(i, &BitDepth); N(err)
+    err= GetBitDepth(i, &BitDepth); HANDLE(err)
     PyList_SetItem(ADChannelBitDepths, i,
                    PyLong_FromLong((long)BitDepth));
     for (j=0; j < NumAmp; ++j) {
-		  err= GetNumberHSSpeeds(i,j, &NumHSpeeds); N(err)
+		  err= GetNumberHSSpeeds(i,j, &NumHSpeeds); HANDLE(err)
       err= GetAmpDesc(j, AmplifierName, sizeof(AmplifierName));
       PyList_SetItem(AmplifierTypes, j, PyUnicode_FromString(AmplifierName));
       for (k=0; k < NumHSpeeds; ++k) {
-			  err= GetHSSpeed(i,j,k, &HSSpeed); N(err)
+			  err= GetHSSpeed(i,j,k, &HSSpeed); HANDLE(err)
         PyList_Append(HSSpeeds,
                       PyLong_FromLong((long)HSSpeed));
 			  for (m=0; m < NumPreAmpGains; ++m) {
-				  err= GetPreAmpGain(m, &PreAmpGain); N(err)
+				  err= GetPreAmpGain(m, &PreAmpGain); HANDLE(err)
           PyList_SetItem(PreAmpGains, m, PyLong_FromLong((long)PreAmpGain));
-          err= IsPreAmpGainAvailable(i,j,k,m, &IsAvailable); N(err)
+          err= IsPreAmpGainAvailable(i,j,k,m, &IsAvailable); HANDLE(err)
           if (IsAvailable)
             PyList_Append(AvailableMatrix, Py_BuildValue("[i,i,i,i]",i,j,k,m));
 				}
@@ -208,20 +208,20 @@ PyGetVSCapabilities(PyObject *self) {
   float tempSpeed;
   //float speed[MAX_VS]={0}, recommended={0};
   int i;
-  err= GetNumberVSSpeeds(&NumSpeeds); N(err)
+  err= GetNumberVSSpeeds(&NumSpeeds); HANDLE(err)
   speed = PyList_New(NumSpeeds);
   for (i=0; i < NumSpeeds; ++i) {
-    err= GetVSSpeed(i, &tempSpeed); N(err)
+    err= GetVSSpeed(i, &tempSpeed); HANDLE(err)
     PyList_SetItem(speed, i, PyFloat_FromDouble((double)tempSpeed));
   }
-  err= GetFastestRecommendedVSSpeed(&i, &tempSpeed); N(err)
+  err= GetFastestRecommendedVSSpeed(&i, &tempSpeed); HANDLE(err)
   err= GetNumberVSAmplitudes(&NumAmplitudes);
   if (err == DRV_NOT_AVAILABLE) {
     Py_INCREF(Py_None);
     amplitudes = Py_None;
   }
   else {
-    if (err != DRV_SUCCESS) return NULL;
+    HANDLE(err)
     else amplitudes = PyFloat_FromDouble((double)NumAmplitudes);
   }
   v = PyDict_New();
@@ -240,9 +240,9 @@ PyShutDown(PyObject *self,
   at_32 cameraHandle = 0;
   PyArg_ParseTuple(args, "|i",  &cameraHandle);
   if (cameraHandle) {
-    err= SetCurrentCamera(cameraHandle); N(err)
+    err= SetCurrentCamera(cameraHandle); HANDLE(err)
   }
-  err= ShutDown(); N(err)
+  err= ShutDown(); HANDLE(err)
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -256,8 +256,8 @@ PyGetVersionInfo(PyObject *self) {
   at_u32 size_t = sizeof(VersionInfo);
   err= GetVersionInfo(ver, VersionInfo, size_t);
   if (err != DRV_SUCCESS) {
-    fprintf(stderr, "Error %u instead of DRV_SUCCESS at %s/%s:%d\n", \
-                  err, __FILE__, __FUNCTION__, __LINE__); \
+    fprintf(stderr, "Error %u instead of DRV_SUCCESS at %s/%s:%d\n",
+                  err, __FILE__, __FUNCTION__, __LINE__-3);
     Py_INCREF(Py_None);
     return Py_None;
   }
@@ -315,10 +315,16 @@ PyMODINIT_FUNC
 PyInit_pyandor(void) {
   PyObject *m;
 
+  CameraType.tp_new = PyType_GenericNew;
+  if (PyType_Ready(&CameraType) < 0)
+    return NULL;
+  
   m = PyModule_Create(&pyandormodule);
-  if (m == NULL) {
+  if (m == NULL)
     return NULL; /* module cannot be initiailized satisfactorily */
-  }
+
+  Py_INCREF(&CameraType);
+  PyModule_AddObject(m, "Camera", (PyObject *)&CameraType);
 
   /* boilerplate to handle exceptions */
   AndorError = PyErr_NewException("pyandor.error", NULL, NULL);
