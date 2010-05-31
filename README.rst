@@ -5,25 +5,38 @@ Build `pyandor` by running::
 
     $ python setup.py build
 
-To use the example, create a symlink named pyandor.so to the build object
+Note that it won't override an existing build, so if you have built it once before you would need to run::
+
+    $ rm -rf build/ && python setup.py build
+
+To use the example `test.py`, create a symlink named pyandor.so to the build object
 similar to::
 
     $ ln -s build/lib.linux-x86_64-3.1/pyandor.so pyandor.so
 
 Example output with Luca-S::
 
-    $ ./test-image-example.py
-    Cameras found: (100,)
-    Error 20066 instead of DRV_SUCCESS at _pyandormodule.c/PyGetVersionInfo:260
-    Versions: None
-    Camera handle# 100 initializing ...
-    Identified head: Luc247_MONO
-    Head serial number: 358
-    Capabilities: {'TriggerModes': 59, 'PixelMode': 2, 'Features': 139909, 'CameraType': 11, 'EMGainCapability': 1, 'SetFunctions': 20500, 'PCICard': 0, 'AcqModes': 63, 'FTReadModes': 7, 'GetFunctions': 45, 'ReadModes': 7}
-    Internal Mechanical Shutter?: 0
-    Readout Capabilities: {'ADChannelBitDepths': [14], 'AmplifierTypes': ['Electron Multiplying'], 'AvailableMatrix': [[0, 0, 0, 0]], 'PreAmpGains': [1], 'HSSpeeds': [12]}
-    Vertical Shift Capabilities: {'VSAmplitudes': None, 'VSSpeeds': [0.6172999739646912], 'OkayWithoutVSAmp': 0.6172999739646912}
-    Camera handle# 100 Shutting down ...
+    $ ./test.py
+    GetCameraHandles <built-in method GetCameraHandles of pyandor.Camera object at 0x7f3a0e99fc00>
+    ShutDown   <built-in method ShutDown of pyandor.Camera object at 0x7f3a0e99fc00>
+    _frame_rate -1.0
+    _handle    0
+    _image_size_bytes 0
+    _model     {'head_serial': 598, 'pixels_height': 1002, 'name': 'Luc285_MONO\x00', 'pixels_width': 1004}
+    _status    0
+    _time_readout 0.0806499272585
+    active_chip_window {'height': 1002, 'width': 1004, 'y_offset': 1, 'x_offset': 1, 'bin_y': 1, 'bin_x': 1}
+    camera_trigger_mode <AttributeError>
+    cooling_temperature_actual -999.0
+    cooling_temperature_target -999.0
+    delay_after_readout -1.0
+    exposure_time 9.99999974738e-06
+    images_to_acquire 0
+    readout_mode <AttributeError>
+    readout_vertical_speed <AttributeError>
+    shutter_state <AttributeError>
+    shutter_timing <AttributeError>
+    shutter_trigger_mode <AttributeError>
 
 You have to install the Andor SDK package separately, and have your compiler
 and linker find the include files and libraries.  You also need to have the
@@ -34,79 +47,8 @@ Class structure
 ===============
 
 Since Python cannot and should not implement call-by-reference wrapping of
-the the Andor SDK C functions, the following is the planned object layer::
-
-    GetCameraHandles()
-
-    class Camera(Handle=NULL, shutter=open):
-      # Automatic handling of GetCurrentCamera / SetCurrentCamera(Handle)
-      # when calling class instance for all functions, e.g.:
-      # >>> camera[0].SnapEM()
-      # >>> camera[1].SnapConv()
-      # ...will take care of calling SetCurrentCamera
-
-      # class instance constructor
-      __init__:
-        Initialize()       # SDK function automatically called
-        # self properties populated
-        .Handle
-        .HeadModel
-        .HeadSerial
-        .Exposure        
-        .Binning
-        .Cooling
-        .height
-        .width
-        .left
-        .right
-        # properties populated if > 1
-        .HorzReadout[]     # Bits + Amplifier + HSSpeed + PreAmp settable list
-        .VertReadout[]     # VSSpeed settable list
-        .VertVoltage[]     # Voltages settable list
-        # properties populated if they exist
-        .EMGain            # Warn if non-linear
-        .EMGainInfo[Min, Max, IsLinear]
-        .BaselineCompensation
-        .BaseLineOffsetLevels[]
-        .Fan[]             # on, low, off
-        .SetTemperature
-        .TemperatureInfo[Min, Max]
-        .Overlap           # Frame transfer
-        .HasInternalShutter
-        .RingExposure[]    # iCam
-        .Crop
-        # custom status properties
-        .Busy
-        .Temperature
-        .TemperatureLocked 
-      
-      # member functions
-      Temperature()        # Returns if on, current value, and if stabilized
-      Shutter(state=['open', 'close', 'auto'], open=0.04, close=0.04)
-                            # set timings, and behavior for internal shutter
-      ShutterOutput()       # set timings, and behavior for shutter output
-      Snap(images=1, Mode=['EM', 'conv'], spool=NULL, ...)
-      SnapEM()              # synonym for Snap(Mode='EM') allowing same arguments
-      SnapConv()            # synonym for Snap(Mode='conv')
-      SnapRing(images=20, exposure=[0.1, 0.35, ...], ...)
-      Live()                # RunTillAbort
-      Abort()               # aborts snap or live
-     
-      # class instance destructor
-      __destroy__:
-        Conf.Write()
-        Temperature(state='Off')
-        ShutDown()
-
-    # Default settings such as EM gain, conventional HSSpeed, VS, exposure, ...
-    class Conf():
-      Apply(file="/etc/andor/allcameras.conf")  # Reads in and applies the file
-      Write(file)
-
-    class Troubleshoot():
-      .SDKVersion
-      .EEPROM              # Support only *reading* from EEPROM
-      .LogFile
+the the Andor SDK C functions, the planned object layer is written in
+`uml.zargo`
 
 IRC
 ===
