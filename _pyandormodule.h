@@ -23,17 +23,26 @@
 #define __PYANDOR_H__
 
 #include <Python.h>
+#include "structmember.h"
 #include "atmcdLXd.h"
+
+#ifdef _LP64
+#define T_AT_32 T_INT
+#define T_AT_u32 T_UINT
+#else
+#define T_AT_32 T_LONG
+#define T_AT_u32 T_ULONG
+#endif /* #ifdef _LP64 */
 
 /* --- Macros -------------------------------------------------------------- */
 #define HANDLE(err) if (err != DRV_SUCCESS) { \
-  fprintf(stderr, "Error %u instead of DRV_SUCCESS at %s/%s:%d\n", \
-                  err, __FILE__, __FUNCTION__, __LINE__-2); \
+  fprintf(stderr, "Return code %u instead of DRV_SUCCESS at %s/%s:%d\n", \
+                  err, __FILE__, __FUNCTION__, __LINE__); \
   return NULL; \
 }
-#define CHK if (self->Status != DRV_SUCCESS) { \
-  fprintf(stderr, "Error %u instead of DRV_SUCCESS at %s/%s:%d\n", \
-                  err, __FILE__, __FUNCTION__, __LINE__-2); \
+#define CHK if (self->_status != DRV_SUCCESS) { \
+  fprintf(stderr, "Return code %u instead of DRV_SUCCESS at %s/%s:%d\n", \
+                  self->_status, __FILE__, __FUNCTION__, __LINE__); \
   return NULL; \
 }
 #define ETC_DIR "/usr/local/etc/andor/"
@@ -45,128 +54,168 @@
 
 /* --- Type objects -------------------------------------------------------- */
 typedef struct {
-    PyObject_HEAD
-    /* Type-specific fields go here. */
-} Camera;
-
-typedef struct {
   PyObject_HEAD
-  /* Type-specific fields */
-  at_32 *_handle;       /* session-unique camera handle */
-  PyObject *_model;     /* head model tuple with
-                         *   (name=, head_serial=, pixels_width=,
-                         *    pixels_height=) */
-  float *exposure_time;
-  unsigned long int
-    *_image_size_bytes; /* module calculated length of required buffer size
-                         *   in bytes to store data for one frame.  This will
-                         *   be affected by the image size, binning, and
-                         *   whether metadata is appended to the data stream */
-  PyObject *image;      /* list of [width=, height=, x=, y=, bin_x=, bin_y=] */
-  PyObject *readout_mode;          /* option(s) = {digitizer_bit_depth + 
-                                    *              amplifier_type +
-                                    *              horizontal speed +
-                                    *              post_readout_gain} */
-  PyObject *readout_vertical_speed; /* option(s) = {0.45us <, etc>} */
-  PyObject *shutter_state;          /* options = {open, close, auto} */
-  PyObject *shutter_trigger_mode;   /* options = {internal, external} */
-  PyObject *shutter_timing;         /* list of [opening=, closing=] */
-  PyObject *camera_trigger_mode;    /* options = {internal, external} */
-  float *delay_after_readout;
-  float *cooling_temperature_target;
-  float *cooling_temperature_actual;
-  unsigned long int *images_to_acquire;
-  float *_time_readout; /* total time for readout stage only */
-  float *_frame_rate;   /* total time for capture and delays */
-
+  at_32 _handle;
+  PyObject *_model;
+  float exposure_time;
+  unsigned long _image_size_bytes;
+  PyObject *active_chip_window;
+  PyObject *readout_mode;
+  PyObject *readout_vertical_speed;
+  PyObject *shutter_state;
+  PyObject *shutter_trigger_mode;
+  PyObject *shutter_timing;
+  PyObject *camera_trigger_mode;
+  float delay_after_readout;
+  float cooling_temperature_target;
+  float cooling_temperature_actual;
+  unsigned long images_to_acquire;
+  float _time_readout;
+  float _frame_rate;
   unsigned int _status;
 } Camera;
 
+static PyMemberDef Camera_members[] = {
+  {"_handle", T_AT_32, offsetof(Camera, _handle), 0,
+   "Session unique camera handle"},
+  {"_model", T_OBJECT_EX, offsetof(Camera, _model), 0,
+   "Head model tuple with (name=, head_serial=, pixels_width=, \
+    pixels_height=)"},
+  {"exposure_time", T_FLOAT, offsetof(Camera, exposure_time), 0,
+   "Exposure time"},
+  {"_image_size_bytes", T_ULONG, offsetof(Camera, _image_size_bytes), 0,
+   "Calculated length of required buffer size in bytes to store data \
+    for one frame.  This will be affected by the image size, binning, and \
+    whether metadata is appended to the data stream"},
+  {"active_chip_window", T_OBJECT_EX, offsetof(Camera, active_chip_window), 0,
+   "Sensor configuration of image pixels to read [width=, height=, \
+    x_offset=, y_offset=, bin_x=, bin_y=]"},
+  {"readout_mode", T_OBJECT_EX, offsetof(Camera, readout_mode), 0,
+   "Sensor readout compound option(s) of {digitizer_bit_depth + \
+    amplifier_type + horizontal speed + post_readout_gain}"},
+  {"readout_vertical_speed", T_OBJECT_EX, offsetof(Camera, 
+                                                   readout_vertical_speed), 0,
+   "Sensor vertical clock shift speed option(s) of {shift time #1 in us \
+    <, etc>}"},
+  {"shutter_state", T_OBJECT_EX, offsetof(Camera, shutter_state), 0,
+   "Internal or External shutter state options of {open, close, auto}"},
+  {"shutter_trigger_mode", T_OBJECT_EX, offsetof(Camera,
+                                                 shutter_trigger_mode), 0,
+   "Select shutter control options of {internal, external}"},
+  {"shutter_timing", T_OBJECT_EX, offsetof(Camera, shutter_timing), 0,
+   "Set manufacturer's specification for shutter [opening=, closing=]"},
+  {"camera_trigger_mode", T_OBJECT_EX, offsetof(Camera,
+                                                camera_trigger_mode), 0,
+   "Acquire by triggering camera {internal, external}"},
+  {"delay_after_readout", T_FLOAT, offsetof(Camera, delay_after_readout), 0,
+   "Delay after readout before the next acquisition in a series"},
+  {"cooling_temperature_target", T_FLOAT,
+   offsetof(Camera, cooling_temperature_target), 0,
+   "Target temperature for thermal electric cooler"},
+  {"cooling_temperature_actual", T_FLOAT,
+   offsetof(Camera, cooling_temperature_target), 0,
+   "Sensor temperature"},
+  {"images_to_acquire", T_ULONG, offsetof(Camera, images_to_acquire), 0,
+   "Total number of acquisitions to be carried out in a series"},
+  {"_time_readout", T_FLOAT, offsetof(Camera, _time_readout), 0,
+   "Calculated readout time from image settings, readout mode, vertical \
+    shift speed, and (if applicable) readout overlapping"},
+  {"_frame_rate", T_FLOAT, offsetof(Camera, _frame_rate), 0,
+   "Calculated frame rate based on readout time, exposure and delays"},
+  {"_status", T_UINT, offsetof(Camera, _status), 0,
+   "Return code from last Andor SDK command"},
+  {NULL} /* sentinel */
+};
+
 static void
 Camera_dealloc(Camera* self) {
-  Py_XDECREF(self->_handle);
   Py_XDECREF(self->_model);
-  Py_XDECREF(self->binning);
-  Py_XDECREF(self->_image_size_bytes);
+  Py_XDECREF(self->active_chip_window);
   Py_XDECREF(self->readout_mode);
   Py_XDECREF(self->readout_vertical_speed);
   Py_XDECREF(self->shutter_state);
   Py_XDECREF(self->shutter_trigger_mode);
   Py_XDECREF(self->shutter_timing);
   Py_XDECREF(self->camera_trigger_mode);
-  Py_XDECREF(self->delay_after_readout);
-  Py_XDECREF(self->cooling_temperature_target);
-  Py_XDECREF(self->cooling_temperature_actual);
-  Py_XDECREF(self->images_to_acquire);
-  Py_XDECREF(self->_time_readout);
-  Py_XDECREF(self->_frame_rate);
-  Py_XDECREF(self->_status);
   Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
-static int
-Camera_init(Camera *self, PyObject *args, PyObject *kwds) {
-  PyObject *_user_handle=NULL;
-  static char *kwlist[] = {"_handle", NULL};
-  if (! PyArg_ParseTupleAndKeywords(args, kwds, "|O", kwlist, 
-                                    &_user_handle))
-    return -1; 
-
-  /* TODO: would be nice to have a way to match serial number to camera.
-   *       e.g. Confocal = Camera(HeadSerial=3193)
-   *       ...but this would probably need some juggling of handles.
-   */
-  //if(_handle != NULL) {
-  //  self->_status = SetCameraHandle(_handle); CHK
-  //}
-  //else
-  self->_status = GetCurrentCamera(self->_handle); CHK
-  self->_status = Initialize(ETC_DIR); CHK
-  self->_model = PyDict_New();
-  char name[MAX_PATH];
-  self->_status = GetHeadModel(name); CHK
-  PyDict_SetItem(self->_model, PyUnicode_FromString("name"),
-                 PyUnicode_FromString(Py_BuildValue("z#", &name, MAX_PATH));
-  Py_DECREF(name);
-  int *number;
-  self->_status = GetCameraSerialNumber(number); CHK
-  PyDict_SetItem(self->_model, PyUnicode_FromString("head_serial"),
-                 PyLong_FromLong((long)number);
-  Py_DECREF(number);
-  int *xpixels, *ypixels;
-  self->_status = GetDetector(xpixels, ypixels); CHK
-  PyDict_SetItem(self->_model, PyUnicode_FromString("pixels_width"),
-                 PyLong_FromLong((long)xpixels);
-  Py_DECREF(xpixels);
-  PyDict_SetItem(self->_model, PyUnicode_FromString("pixels_height"),
-                 PyLong_FromLong((long)ypixels);
-  Py_DECREF(ypixels);
-  int *mintemp, *maxtemp;
-  self->_status = GetTemperatureRange(mintemp, maxtemp); CHK
-  if (mintemp == maxtemp) { /* Temperature is not user editable */
-    printf("Temperature is not user editable");
+static PyObject *
+Camera_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+  Camera *self;
+  
+  //self = (Camera *)type->tp_alloc(type,0);
+  self = (Camera *)PyType_GenericNew(type, args, kwds);
+  if (self != NULL) {
+    self->_handle = -1;
+    self->exposure_time = -1;
+    self->delay_after_readout = -1;
+    self->_time_readout = -1;
+    self->_frame_rate = -1;
+    self->cooling_temperature_target = -999;
+    self->cooling_temperature_actual = -999;
+    self->_image_size_bytes = 0;
+    self->images_to_acquire = 0;
+    self->_status = 0;
+    self->_model = PyDict_New();
+    if (self->_model == NULL)
+      goto error;
+    else {
+      if (PyDict_SetItem(self->_model, PyUnicode_FromString("name"),
+                         PyUnicode_FromString("")) != 0) goto error;
+      if (PyDict_SetItem(self->_model, PyUnicode_FromString("head_serial"),
+                         PyLong_FromLong(0)) != 0) goto error;
+      if (PyDict_SetItem(self->_model, PyUnicode_FromString("pixels_width"),
+                         PyLong_FromLong(0)) != 0) goto error;
+      if (PyDict_SetItem(self->_model, PyUnicode_FromString("pixels_height"),
+                         PyLong_FromLong(0)) != 0) goto error;
+    }
+    self->active_chip_window = PyDict_New();
+    if (self->active_chip_window == NULL)
+      goto error;
+    else {
+      if (PyDict_SetItem(self->active_chip_window,
+                         PyUnicode_FromString("width"),
+                         PyLong_FromLong(-1)) != 0) goto error;
+      if (PyDict_SetItem(self->active_chip_window,
+                         PyUnicode_FromString("height"),
+                         PyLong_FromLong(-1)) != 0) goto error;
+      if (PyDict_SetItem(self->active_chip_window,
+                         PyUnicode_FromString("x_offset"),
+                         PyLong_FromLong(-1)) != 0) goto error;
+      if (PyDict_SetItem(self->active_chip_window,
+                         PyUnicode_FromString("y_offset"),
+                         PyLong_FromLong(-1)) != 0) goto error;
+      if (PyDict_SetItem(self->active_chip_window,
+                         PyUnicode_FromString("bin_x"),
+                         PyLong_FromLong(-1)) != 0) goto error;
+      if (PyDict_SetItem(self->active_chip_window,
+                         PyUnicode_FromString("bin_y"),
+                         PyLong_FromLong(-1)) != 0) goto error;
+    }
   }
-  Py_DECREF(mintemp); Py_DECREF(maxtemp);
-  float *devnull1, *devnull2;
-  self->_status = GetAcquisitionTimings(self->exposure_time, devnull1,
-                                        devnull2); CHK
-  Py_DECREF(devnull1); Py_DECREF(devnull2);
-  self->_status = GetReadOutTime(self->_time_readout); CHK
-  self->image = PyDict_New();
-  PyDict_SetItem(self->image, PyUnicode_FromString("width"),
-                 PyDict_GetItem(self->_model, pixels_width));
-  PyDict_SetItem(self->image, PyUnicode_FromString("height"),
-                 PyDict_GetItem(self->_model, pixels_height));
-  PyDict_SetItem(self->image, PyUnicode_FromString("x"),
-                 PyLong_FromLong(1);
-  PyDict_SetItem(self->image, PyUnicode_FromString("y"),
-                 PyLong_FromLong(1);
-  PyDict_SetItem(self->image, PyUnicode_FromString("bin_x"),
-                 PyLong_FromLong(1);
-  PyDict_SetItem(self->image, PyUnicode_FromString("bin_y"),
-                 PyLong_FromLong(1);
-  return 0;
+
+  return (PyObject *)self;
+
+  error:
+    Py_DECREF(self);
+    return NULL;
 }
+
+static int Camera_init(Camera *self, PyObject *args, PyObject *kwds);
+
+/* Method address prototypes */
+static PyObject* PyGetCameraHandles(PyObject *self);
+static PyObject* PyShutDown(PyObject *self);
+
+/* Method table listing method names and addresses */
+static PyMethodDef Camera_methods[] = {
+  {"GetCameraHandles",  (PyCFunction)PyGetCameraHandles, METH_NOARGS,
+   "Get available camera handles"},
+  {"ShutDown",  (PyCFunction)PyShutDown, METH_NOARGS,
+   "ShutDown current camera (not necessary for USB cameras)"},
+  {NULL, NULL, 0, NULL} /* sentinel */
+};
 
 static PyTypeObject CameraType = {
   PyVarObject_HEAD_INIT(NULL, 0)
@@ -190,7 +239,7 @@ static PyTypeObject CameraType = {
   0,                            /* tp_as_buffer */
   Py_TPFLAGS_DEFAULT |
     Py_TPFLAGS_BASETYPE,        /* tp_flags */
-  "pyandor Camera object",      /* tp_doc */
+  "Andor Camera object",        /* tp_doc */
   0,		                        /* tp_traverse */
   0,		                        /* tp_clear */
   0,		                        /* tp_richcompare */
@@ -207,7 +256,7 @@ static PyTypeObject CameraType = {
   0,                            /* tp_dictoffset */
   (initproc)Camera_init,        /* tp_init */
   0,                            /* tp_alloc */
-  0,                            /* tp_new */
+  Camera_new,                   /* tp_new */
 };
 
 /* --- Exception name unique to this module -------------------------------- */
@@ -215,4 +264,4 @@ static PyObject* AndorError;
 /* TODO: set exceptions for the functions and map the return codes
  *   and meanings to the exception message. */
 
-#endif /* define __PYANDOR_H__ */
+#endif /* #ifndef __PYANDOR_H__ */

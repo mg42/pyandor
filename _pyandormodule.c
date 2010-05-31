@@ -21,6 +21,77 @@
 
 #include "_pyandormodule.h"
 
+//static PyObject* PyGetVSCapabilities(void);
+
+static int
+Camera_init(Camera *self, PyObject *args, PyObject *kwds) {
+  PyObject *_user_handle;
+  static char *kwlist[] = {"_user_handle", NULL};
+  if (! PyArg_ParseTupleAndKeywords(args, kwds, "|i", kwlist, 
+                                    &_user_handle))
+    return -1; 
+  /* TODO: would be nice to have a way to match serial number to camera.
+   *   e.g. Confocal = Camera(HeadSerial=3193)
+   *   ...but this would probably need some juggling of handles.
+   */
+  unsigned int err;
+  err= Initialize(ETC_DIR);
+  if (err == 20003) fprintf(stderr, "Return code %u: No camera found", err);
+  HANDLE(err)
+  sleep(2);
+  
+  at_32 _handle;
+  err= GetCurrentCamera(_handle); HANDLE(err)
+  self->_handle = _handle;
+  
+  char name[MAX_PATH];
+  err= GetHeadModel(name); HANDLE(err) 
+  PyDict_SetItemString(self->_model, "name",
+                       Py_BuildValue("z#", &name, MAX_PATH));
+  Py_DECREF(name);
+  
+  int number;
+  err= GetCameraSerialNumber(&number); HANDLE(err)
+  PyDict_SetItemString(self->_model, "head_serial",
+                       PyLong_FromLong((long)number));
+  int xpixels, ypixels;
+  err= GetDetector(&xpixels, &ypixels); HANDLE(err)
+  PyDict_SetItemString(self->_model, "pixels_width",
+                       PyLong_FromLong((long)xpixels));
+  PyDict_SetItemString(self->_model, "pixels_height",
+                       PyLong_FromLong((long)ypixels));
+  
+  int mintemp, maxtemp;
+  err= GetTemperatureRange(&mintemp, &maxtemp); HANDLE(err)
+  if (mintemp == maxtemp) { /* Temperature is not user editable */
+    printf("Temperature is not user editable");
+  }
+  
+  float devnull1, devnull2;
+  float exposure_time, _time_readout;
+  err= GetAcquisitionTimings(&exposure_time, &devnull1, &devnull2); HANDLE(err)
+  self->exposure_time = exposure_time;
+  err= GetReadOutTime(&_time_readout); HANDLE(err)
+  self->_time_readout = _time_readout;
+  
+  PyDict_SetItemString(self->active_chip_window, "width",
+                       PyDict_GetItem(self->_model,
+                                      PyUnicode_FromString("pixels_width")));
+  PyDict_SetItemString(self->active_chip_window, "height",
+                       PyDict_GetItem(self->_model,
+                                      PyUnicode_FromString("pixels_height")));
+  PyDict_SetItemString(self->active_chip_window, "x_offset",
+                       PyLong_FromLong(1));
+  PyDict_SetItemString(self->active_chip_window, "y_offset",
+                       PyLong_FromLong(1));
+  PyDict_SetItemString(self->active_chip_window, "bin_x", PyLong_FromLong(1));
+  PyDict_SetItemString(self->active_chip_window, "bin_y", PyLong_FromLong(1));
+  
+  //self->readout_vertical_speed = PyGetVSCapabilities();
+  
+  return 0;
+}
+
 /* --- Python methods wrapping Andor SDK functions ------------------------- */
 // unsigned int GetCameraHandle(at_32 cameraIndex, at_32 * cameraHandle);
 // unsigned int GetAvailableCameras(at_32 * totalCameras);
@@ -201,7 +272,7 @@ PyGetReadoutCapabilities(PyObject *self) {
 //unsigned int GetFastestRecommendedVSSpeed(int * index, float * speed);
 //unsigned int GetNumberVSAmplitudes(int * number);
 static PyObject*
-PyGetVSCapabilities(PyObject *self) {
+PyGetVSCapabilities(void) {
   unsigned int err;
   int NumSpeeds, NumAmplitudes;
   PyObject *v, *speed, *amplitudes;
@@ -234,14 +305,9 @@ PyGetVSCapabilities(PyObject *self) {
 }
 //unsigned int ShutDown();
 static PyObject*
-PyShutDown(PyObject *self,
-           PyObject *args) {
+PyShutDown(PyObject *self) {
   unsigned int err;
   at_32 cameraHandle = 0;
-  PyArg_ParseTuple(args, "|i",  &cameraHandle);
-  if (cameraHandle) {
-    err= SetCurrentCamera(cameraHandle); HANDLE(err)
-  }
   err= ShutDown(); HANDLE(err)
   Py_INCREF(Py_None);
   return Py_None;
@@ -271,43 +337,14 @@ PyGetVersionInfo(PyObject *self) {
   return v;
 }
 
-/* --- Method table listing method names and addresses --------------------- */
-static PyMethodDef AndorMethods[] = {
-  {"GetCameraHandles",  (PyCFunction)PyGetCameraHandles, METH_NOARGS,
-   "Get camera handles. Required for multiple cameras"},
-  {"Initialize",  (PyCFunction)PyInitialize, METH_VARARGS,
-   "Initialize current camera or provided camera handle"},
-  {"SetCurrentCamera",  (PyCFunction)PySetCurrentCamera, METH_VARARGS,
-   "When there are multiple cameras, select active camera by handle"},
-  {"GetHeadModel",  (PyCFunction)PyGetHeadModel, METH_NOARGS,
-   "Get head model string"},
-  {"GetCameraSerialNumber",  (PyCFunction)PyGetCameraSerialNumber, METH_NOARGS,
-   "Get head serial number"},
-  {"GetCapabilities",  (PyCFunction)PyGetCapabilities, METH_NOARGS,
-   "Camera supported modes"},
-  {"IsInternalMechanicalShutter",  (PyCFunction)PyIsInternalMechanicalShutter, METH_NOARGS,
-   "Internal Shutter Available?"},
-  {"GetReadoutCapabilities",  (PyCFunction)PyGetReadoutCapabilities, METH_NOARGS,
-   "Cameras supported Readout modes"},
-  {"GetVSCapabilities",  (PyCFunction)PyGetVSCapabilities, METH_NOARGS,
-   "Cameras supported Vertical shift modes"},
-  {"GetCameraHandles",  (PyCFunction)PyGetCameraHandles, METH_NOARGS,
-   "Get camera handles. Required for multiple cameras"},
-  {"ShutDown",  (PyCFunction)PyShutDown, METH_VARARGS,
-   "ShutDown current camera or provided camera handle"},
-  {"GetVersionInfo",  (PyCFunction)PyGetVersionInfo, METH_NOARGS,
-   "Get SDK and driver versions"},
-  {NULL, NULL, 0, NULL} /* sentinel */
-};
-
 /* --- Module definition --------------------------------------------------- */
 static struct PyModuleDef pyandormodule = {
   PyModuleDef_HEAD_INIT,
   "pyandor", /* name of module */
-  NULL,      /* module documentation, may be NULL */
+  "Python C API wrapper for Andor Technology SDK functions",
   -1,        /* size of per-interpreter state of the module,
                 or -1 if the module keeps state in global variables. */
-  AndorMethods
+  NULL, NULL, NULL, NULL, NULL
 };
 
 /* --- Module initialization ----------------------------------------------- */
@@ -315,7 +352,6 @@ PyMODINIT_FUNC
 PyInit_pyandor(void) {
   PyObject *m;
 
-  CameraType.tp_new = PyType_GenericNew;
   if (PyType_Ready(&CameraType) < 0)
     return NULL;
   
@@ -327,8 +363,8 @@ PyInit_pyandor(void) {
   PyModule_AddObject(m, "Camera", (PyObject *)&CameraType);
 
   /* boilerplate to handle exceptions */
-  AndorError = PyErr_NewException("pyandor.error", NULL, NULL);
-  Py_INCREF(AndorError);
-  PyModule_AddObject(m, "error", AndorError);
+//  AndorError = PyErr_NewException("pyandor.error", NULL, NULL);
+//  Py_INCREF(AndorError);
+//  PyModule_AddObject(m, "error", AndorError);
   return m;
 }
